@@ -56,10 +56,16 @@ void* proccess(void* fd_void)
             string::size_type http_pos = incoming_data.find("HTTP/1.0", 0);
             if( http_pos != string::npos )
             {
-                //syslog(LOG_NOTICE, string("HTTP_POS:" + string(SSTR(http_pos).c_str())).c_str());
-                string request_filename = incoming_data.substr(get_pos + 4, http_pos - get_pos - 5);
+                string::size_type question_pos = incoming_data.find("?", 0);
+                string request_filename;
+                if( question_pos == string::npos )
+                {
+                    request_filename = incoming_data.substr(get_pos + 4, http_pos - get_pos - 5);
+                } else {
+                    request_filename = incoming_data.substr(get_pos + 4, question_pos - get_pos - 4);
+                }
                 std::stringstream ss;
-                //syslog(LOG_NOTICE, string(dir + request_filename).c_str());
+                syslog(LOG_NOTICE, string(dir + request_filename).c_str());
                 ifstream in( string(dir + request_filename).c_str(), ifstream::ate );
                 if(in)
                 {
@@ -214,10 +220,9 @@ int main (int argc, char **argv)
                 pthread_attr_t attr;
                 pthread_attr_init(&attr);
                 pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-                epoll_ctl(EPoll, EPOLL_CTL_DEL, Events[i].data.fd, &Event);
-                pthread_create(&thread, &attr, &proccess, &Events[i].data.fd);
-
-                //proccess(Events[i].data.fd);
+                int fd = Events[i].data.fd;
+                //epoll_ctl(EPoll, EPOLL_CTL_DEL, Events[i].data.fd, &Event);
+                pthread_create(&thread, &attr, &proccess, &fd);
             }
         }
     }
