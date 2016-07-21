@@ -97,6 +97,8 @@ void* proccess(void* fd_void)
                     ss << "\r\n\r\n";
                 }
                 send(fd, ss.str().c_str(), ss.str().size(), MSG_NOSIGNAL);
+                shutdown(fd, SHUT_RDWR);
+                close(fd);
             } else {
                 //error
             }
