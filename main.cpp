@@ -9,8 +9,17 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <signal.h>
+#include <string>
+#include <errno.h>
+#include <syslog.h>
+#include <fstream>
+#include <sstream>
 
-#define MAX_EVENTS 100
+
+#define SSTR( x ) static_cast< std::ostringstream & >( \
+        ( std::ostringstream() << std::dec << x ) ).str()
+
+#define MAX_EVENTS 1000
 
 using namespace std;
 
@@ -27,11 +36,73 @@ int set_nonblock(int fd)
 #endif
 }
 
+static char *ip = NULL, *dir = NULL;
+
+void* proccess(void* fd_void)
+{
+    int fd = *((int*)fd_void);
+    static char Buffer[1024] = {};
+    int RecvResult = recv(fd, Buffer, 1024, MSG_NOSIGNAL);
+    if( (RecvResult == 0) && (errno != EAGAIN) )
+    {
+        shutdown(fd, SHUT_RDWR);
+        close(fd);
+    } else if (RecvResult > 0) {
+        string incoming_data(Buffer);
+        string::size_type get_pos = incoming_data.find("GET", 0);
+        //syslog(LOG_NOTICE, string("GET_POS:" + string(SSTR(get_pos).c_str())).c_str());
+        if( get_pos != string::npos )
+        {
+            string::size_type http_pos = incoming_data.find("HTTP/1.0", 0);
+            if( http_pos != string::npos )
+            {
+                //syslog(LOG_NOTICE, string("HTTP_POS:" + string(SSTR(http_pos).c_str())).c_str());
+                string request_filename = incoming_data.substr(get_pos + 4, http_pos - get_pos - 5);
+                std::stringstream ss;
+                //syslog(LOG_NOTICE, string(dir + request_filename).c_str());
+                ifstream in( string(dir + request_filename).c_str(), ifstream::ate );
+                if(in)
+                {
+                    in.seekg(0, std::ios::end);    // go to the end
+                    ifstream::pos_type length = in.tellg();           // report location (this is the length)
+                    in.seekg(0, std::ios::beg);    // go back to the beginning
+                    char *buffer = new char[length];    // allocate memory for a buffer of appropriate dimension
+                    in.read(buffer, length);       // read the whole file into the buffer
+                    in.close();
+
+                    // Create a result with "HTTP/1.0 200 OK"
+                    ss << "HTTP/1.0 200 OK";
+                    ss << "\r\n";
+                    ss << "Content-length: ";
+                    ss << length;
+                    ss << "\r\n";
+                    ss << "Content-Type: text/html";
+                    ss << "\r\n\r\n";
+                    ss << buffer;
+                    delete buffer;
+                } else {
+                    // Create a result with "HTTP/1.0 404 NOT FOUND"
+                    ss << "HTTP/1.0 404 NOT FOUND";
+                    ss << "\r\n";
+                    ss << "Content-length: ";
+                    ss << 0;
+                    ss << "\r\n";
+                    ss << "Content-Type: text/html";
+                    ss << "\r\n\r\n";
+                }
+                send(fd, ss.str().c_str(), ss.str().size(), MSG_NOSIGNAL);
+            } else {
+                //error
+            }
+        } else {
+                //error
+        }
+    }
+}
+
 int main (int argc, char **argv)
 {
     int port = 0;
-    char *ip = NULL, *dir = NULL;
-
 
     int opt = getopt( argc, argv, "h:p:d:" );
     while( opt != -1 )
@@ -58,8 +129,6 @@ int main (int argc, char **argv)
 
         opt = getopt( argc, argv, "h:p:d:" );
     }
-
-    cout << ip << " " << port << " " << dir << endl;
 
     pid_t pid;
     /* Fork off the parent process */
@@ -106,7 +175,7 @@ int main (int argc, char **argv)
         close (x);
 
     /* Open the log file */
-    openlog ("firstdaemon", LOG_PID, LOG_DAEMON);
+    openlog ("web_server_daemon", LOG_PID, LOG_DAEMON);
 
     int MasterSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
@@ -132,7 +201,24 @@ int main (int argc, char **argv)
 
         for(unsigned int i=0; i < N; i++)
         {
+            if(Events[i].data.fd == MasterSocket)
+            {
+                int SlaveSocket = accept(MasterSocket, 0, 0);
+                set_nonblock(SlaveSocket);
+                struct epoll_event Event;
+                Event.data.fd = SlaveSocket;
+                Event.events = EPOLLIN;
+                epoll_ctl(EPoll, EPOLL_CTL_ADD, SlaveSocket, &Event);
+            } else {
+                pthread_t thread;
+                pthread_attr_t attr;
+                pthread_attr_init(&attr);
+                pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+                epoll_ctl(EPoll, EPOLL_CTL_DEL, Events[i].data.fd, &Event);
+                pthread_create(&thread, &attr, &proccess, &Events[i].data.fd);
 
+                //proccess(Events[i].data.fd);
+            }
         }
     }
 }
