@@ -1,29 +1,47 @@
-#include <unistd.h>    /* for getopt */
+#include <unistd.h>
 #include <fcntl.h>
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <signal.h>
-#include <string>
 #include <errno.h>
 #include <syslog.h>
 #include <cstring>
-#include <fstream>
 #include <sstream>
+#include <arpa/inet.h>
+#include <sys/epoll.h>
 
 
-#define SSTR( x ) static_cast< std::ostringstream & >( \
-        ( std::ostringstream() << std::dec << x ) ).str()
+#define MAX_POLL_EVENTS    100     /// Масимальное число получаемых за раз событий epoll
+#define RECV_BUFFER_LENGTH 1024    /// Размер буфера для считывания данных из сокета
 
-#define MAX_POLL_EVENTS 10000
-
+/**
+ * @brief The worker_params struct Параметры для обрабатывающего запрос потока
+ */
 struct worker_params {
-    int fd;
-    const char *dir;
+    struct epoll_event poll_event; /// Структура с событием
+    int epoll_sd;                  /// Дескриптор epoll
+    const char *dir;               /// Корневая директория сервера
 };
 
-int setSocketNonblock (int fd);
-void* proccess (void* fd_void);
+/**
+ * @brief setSocketNonblock Установка сокета в неблокирующий режим
+ * @param sd Дескриптор сокета
+ * @return Код возврата функции установки сокета в неблокирующий режим
+ */
+int setSocketNonblock (int sd);
+
+/**
+ * @brief workerProccess Поток, обрабатывающий клиентский запрос
+ * @param params
+ * @return NULL в случае ошибки
+ */
+void* workerProccess (void* params);
+
+/**
+ * Шаблонная функция для конвертации числа в строку
+ * @param number Число
+ * @return Число в строковом представлении
+ */
+template <typename T> static std::string numberToString(T number)
+{
+    std::ostringstream ss;
+    ss << number;
+    return ss.str();
+}
