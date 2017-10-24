@@ -1,6 +1,6 @@
-#include <sstream>
-#include <fstream>
 #include "web_server.h"
+#include <fstream>
+
 
 int setSocketNonblock(int sd)
 {
@@ -21,7 +21,7 @@ void* workerProccess(void* params)
     int sd = wp.poll_event.data.fd;
 
     char receive_buffer[RECV_BUFFER_LENGTH] = {};
-    std::string incoming_data;
+    string incoming_data;
 
     int recv_count = -1;
     /// Считывание имеющихся в сокете данных
@@ -34,7 +34,7 @@ void* workerProccess(void* params)
 
         if( (recv_count == -1) && (errno != EAGAIN) )
         {
-            syslog(LOG_ERR, std::string("Recv error:" + std::string(strerror(errno))).c_str());
+            syslog(LOG_ERR, string("Recv error:" + string(strerror(errno))).c_str());
             shutdown(sd, SHUT_RDWR);
             epoll_ctl(wp.epoll_sd, EPOLL_CTL_DEL, sd, &wp.poll_event);
             return NULL;
@@ -46,29 +46,29 @@ void* workerProccess(void* params)
     {
         return NULL;
     } else {
-        std::stringstream ss;
+        stringstream ss;
         /// Обработка заголовка
-        std::string::size_type get_pos = incoming_data.find("GET", 0);
-        if( get_pos != std::string::npos )
+        string::size_type get_pos = incoming_data.find("GET", 0);
+        if( get_pos != string::npos )
         {
-            std::string::size_type http_pos = incoming_data.find("HTTP/1.0", 0);
-            if( http_pos != std::string::npos )
+            string::size_type http_pos = incoming_data.find("HTTP/1.0", 0);
+            if( http_pos != string::npos )
             {
-                std::string::size_type question_pos = incoming_data.find("?", 0);
-                std::string request_filename;
-                if( question_pos == std::string::npos )
+                string::size_type question_pos = incoming_data.find("?", 0);
+                string request_filename;
+                if( question_pos == string::npos )
                 {
                     request_filename = incoming_data.substr(get_pos + 4, http_pos - get_pos - 5);
                 } else {
                     request_filename = incoming_data.substr(get_pos + 4, question_pos - get_pos - 4);
                 }
                 /// Считывание содержимого запрошенного файла, если таковой существует
-                std::ifstream in( std::string(wp.dir + request_filename).c_str(), std::ifstream::ate );
+                ifstream in( string(wp.dir + request_filename).c_str(), ifstream::ate );
                 if(in)
                 {
-                    in.seekg(0, std::ios::end);
-                    std::ifstream::pos_type length = in.tellg();
-                    in.seekg(0, std::ios::beg);
+                    in.seekg(0, ios::end);
+                    ifstream::pos_type length = in.tellg();
+                    in.seekg(0, ios::beg);
                     char *buffer = new char[length];
                     in.read(buffer, length);
                     in.close();

@@ -15,7 +15,7 @@ int main (int argc, char **argv)
     int opt = getopt( argc, argv, "h:p:d:" );
     if( opt == -1 )
     {
-        std::cout << "Usage:" << argv[0] << " -h <ip> -p <port> -d <server_directory>" << std::endl;
+        cout << "Usage:" << argv[0] << " -h <ip> -p <port> -d <server_directory>" << endl;
         return EXIT_SUCCESS;
     }
     while( opt != -1 )
@@ -36,7 +36,7 @@ int main (int argc, char **argv)
 
             case '?':
             default:
-                std::cout << "Usage:" << argv[0] << " -h <ip> -p <port> -d <server_directory>" << std::endl;
+                cout << "Usage:" << argv[0] << " -h <ip> -p <port> -d <server_directory>" << endl;
                 return EXIT_FAILURE;
         }
 
@@ -45,7 +45,7 @@ int main (int argc, char **argv)
 
     if( (ip == NULL) || (dir == NULL) || (port <= 0) )
     {
-        std::cout << "Usage:" << argv[0] << " -h <ip> -p <port> -d <server_directory>" << std::endl;
+        cout << "Usage:" << argv[0] << " -h <ip> -p <port> -d <server_directory>" << endl;
         return EXIT_FAILURE;
     }
     /// Превращение программы в службу
@@ -53,7 +53,7 @@ int main (int argc, char **argv)
     /// Превращение программы в службу
     if( daemon(0,0) == -1 )
     {
-        syslog(LOG_CRIT, std::string("Create daemon error:" + std::string(strerror(errno))).c_str());
+        syslog(LOG_CRIT, string("Create daemon error:" + string(strerror(errno))).c_str());
         return EXIT_FAILURE;
     }
 
@@ -61,7 +61,7 @@ int main (int argc, char **argv)
     int master_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if( master_socket == 1 )
     {
-        syslog(LOG_CRIT, std::string("Create mastersocket error:" + std::string(strerror(errno))).c_str());
+        syslog(LOG_CRIT, string("Create mastersocket error:" + string(strerror(errno))).c_str());
         return EXIT_FAILURE;
     }
 
@@ -72,21 +72,21 @@ int main (int argc, char **argv)
 
     if( bind(master_socket, (struct sockaddr *)(&sockAddr), sizeof(sockAddr)) == -1 )
     {
-        syslog(LOG_CRIT, std::string("Bind error:" + std::string(strerror(errno))).c_str());
+        syslog(LOG_CRIT, string("Bind error:" + string(strerror(errno))).c_str());
         return EXIT_FAILURE;
     }
 
     /// Установка сокета в неблокирующий режим
     if( setSocketNonblock(master_socket) )
     {
-        syslog(LOG_CRIT, std::string("Set nonblock socket state error:" + std::string(strerror(errno))).c_str());
+        syslog(LOG_CRIT, string("Set nonblock socket state error:" + string(strerror(errno))).c_str());
         shutdown(master_socket, SHUT_RDWR);
         return EXIT_FAILURE;
     }
 
     if( listen(master_socket, SOMAXCONN) == -1 )
     {
-        syslog(LOG_CRIT, std::string("Set listen socket state error:" + std::string(strerror(errno))).c_str());
+        syslog(LOG_CRIT, string("Set listen socket state error:" + string(strerror(errno))).c_str());
         shutdown(master_socket, SHUT_RDWR);
         return EXIT_FAILURE;
     }
@@ -95,7 +95,7 @@ int main (int argc, char **argv)
     int e_poll = epoll_create1(0);
     if( e_poll == -1 )
     {
-        syslog(LOG_CRIT, std::string("Epoll create error:" + std::string(strerror(errno))).c_str());
+        syslog(LOG_CRIT, string("Epoll create error:" + string(strerror(errno))).c_str());
         shutdown(master_socket, SHUT_RDWR);
         return EXIT_FAILURE;
     }
@@ -104,7 +104,7 @@ int main (int argc, char **argv)
     poll_event.events = EPOLLIN;
     if( epoll_ctl(e_poll, EPOLL_CTL_ADD, master_socket, &poll_event) == -1 )
     {
-        syslog(LOG_CRIT, std::string("Epoll control error:" + std::string(strerror(errno))).c_str());
+        syslog(LOG_CRIT, string("Epoll control error:" + string(strerror(errno))).c_str());
         shutdown(master_socket, SHUT_RDWR);
         close(e_poll);
         return EXIT_FAILURE;
@@ -118,7 +118,7 @@ int main (int argc, char **argv)
         int poll_events_count = epoll_wait(e_poll, poll_events, MAX_POLL_EVENTS, -1);
         if( poll_events_count == -1 )
         {
-            syslog(LOG_ERR, std::string("Epoll wait error:" + std::string(strerror(errno))).c_str());
+            syslog(LOG_ERR, string("Epoll wait error:" + string(strerror(errno))).c_str());
             shutdown(master_socket, SHUT_RDWR);
             close(e_poll);
             return EXIT_FAILURE;
@@ -131,7 +131,7 @@ int main (int argc, char **argv)
                 int slave_socket = accept(master_socket, 0, 0);
                 if( setSocketNonblock(slave_socket) == -1 )
                 {
-                    syslog(LOG_ERR, std::string("Set nonblock socket state error:" + std::string(strerror(errno))).c_str());
+                    syslog(LOG_ERR, string("Set nonblock socket state error:" + string(strerror(errno))).c_str());
                     shutdown(master_socket, SHUT_RDWR);
                     close(e_poll);
                     return EXIT_FAILURE;
@@ -142,7 +142,7 @@ int main (int argc, char **argv)
                 poll_event.events = EPOLLIN;
                 if( epoll_ctl(e_poll, EPOLL_CTL_ADD, slave_socket, &poll_event) == -1 )
                 {
-                    syslog(LOG_ERR, std::string("Epoll control error:" + std::string(strerror(errno))).c_str());
+                    syslog(LOG_ERR, string("Epoll control error:" + string(strerror(errno))).c_str());
                     shutdown(master_socket, SHUT_RDWR);
                     close(e_poll);
                     return EXIT_FAILURE;
@@ -153,15 +153,16 @@ int main (int argc, char **argv)
                 int ret_code = pthread_attr_init(&attr);
                 if( ret_code != 0 )
                 {
-                    syslog(LOG_ERR, std::string("Init thread attr errorcode:" + numberToString(ret_code)).c_str());
+                    syslog(LOG_ERR, string("Init thread attr errorcode:" + numberToString(ret_code)).c_str());
                     shutdown(master_socket, SHUT_RDWR);
                     close(e_poll);
                     return EXIT_FAILURE;
                 }
+                /// Установка типа потока как отсоединённого
                 ret_code = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
                 if( ret_code != 0 )
                 {
-                    syslog(LOG_ERR, std::string("Set detach state errorcode:" +numberToString(ret_code)).c_str());
+                    syslog(LOG_ERR, string("Set thread detach state errorcode:" +numberToString(ret_code)).c_str());
                     shutdown(master_socket, SHUT_RDWR);
                     close(e_poll);
                     return EXIT_FAILURE;

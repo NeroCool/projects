@@ -1,15 +1,24 @@
 #include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
 #include <syslog.h>
+#include <fcntl.h>
+#include <cerrno>
 #include <cstring>
 #include <sstream>
+#include <iostream>
 #include <arpa/inet.h>
 #include <sys/epoll.h>
 
 
 #define MAX_POLL_EVENTS    100     /// Масимальное число получаемых за раз событий epoll
 #define RECV_BUFFER_LENGTH 1024    /// Размер буфера для считывания данных из сокета
+
+using std::string;
+using std::ostringstream;
+using std::stringstream;
+using std::cout;
+using std::endl;
+using std::ios;
+using std::ifstream;
 
 /**
  * @brief The worker_params struct Параметры для обрабатывающего запрос потока
@@ -39,9 +48,9 @@ void* workerProccess (void* params);
  * @param number Число
  * @return Число в строковом представлении
  */
-template <typename T> static std::string numberToString(T number)
+template <typename T> static string numberToString(T number)
 {
-    std::ostringstream ss;
+    ostringstream ss;
     ss << number;
     return ss.str();
 }
